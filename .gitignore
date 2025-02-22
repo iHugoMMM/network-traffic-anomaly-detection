@@ -8,3 +8,6 @@ __pycache__/
 
 # Ignore virtual environment folder if stored inside repo
 venv_anomaly_project/
+
+# Ignore this C:\GithubRepo\network-traffic-anomaly-detection\network_traffic_anomaly_detection.egg-info
+network_traffic_anomaly_detection.egg-info/

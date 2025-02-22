@@ -2,6 +2,8 @@
 
 import pandas as pd
 import numpy as np
+import random
+import matplotlib.pyplot as plt
 
 def remove_outliers_below_threshold(df, threshold=1.0):
     """
@@ -120,3 +122,150 @@ def fill_nans_day_before_after_interpolate(df, periods_per_day=48):
     df_filled = df_filled.interpolate(method='time')
 
     return df_filled
+
+
+def find_gaps_in_column(series):
+    """
+    Find intervals of NaNs in a single time-series (Pandas Series),
+    considering only the range between the column's first and last valid data.
+    
+    Returns a list of (gap_start, gap_end) tuples.
+    If the entire series is NaN, returns one interval covering the entire index.
+    If there are no gaps, returns an empty list.
+    """
+    # Identify earliest and latest valid timestamps
+    start = series.first_valid_index()
+    end = series.last_valid_index()
+
+    # If the entire column is NaN, we define one big "gap" over the entire index
+    if start is None or end is None:
+        if len(series) == 0:
+            return []  # Empty series
+        return [(series.index[0], series.index[-1])]  # Entirely NaN
+
+    # Slice only between the column's local min and max valid dates
+    sub = series.loc[start:end]
+
+    # Create a mask for NaNs
+    mask = sub.isna()
+
+    # Use .diff() on the integer representation to find transitions
+    transitions = mask.astype(int).diff()
+
+    # Gap starts where diff == 1, ends where diff == -1
+    gap_starts = sub.index[transitions == 1]
+    gap_ends   = sub.index[transitions == -1]
+
+    # If the sub starts with NaN
+    if len(sub) > 0 and mask.iloc[0]:
+        gap_starts = pd.Index([start]).append(gap_starts)
+    # If the sub ends with NaN
+    if len(sub) > 0 and mask.iloc[-1]:
+        gap_ends = gap_ends.append(pd.Index([end]))
+
+    # Pair up each gap_start with the corresponding gap_end
+    intervals = list(zip(gap_starts, gap_ends))
+    return intervals
+
+
+def detect_and_plot_gaps(df, random_cols=5, downsample=10):
+    """
+    1. Randomly selects `random_cols` clients (columns).
+    2. Finds the NaN gap intervals for each chosen client.
+    3. For each client, creates a row of subplots – one for each gap.
+       The total number of columns equals the maximum number of gaps found among the clients.
+    4. In each subplot, a zoomed-in view is plotted with 2 days before the gap start
+       and 2 days after the gap end.
+    5. Downsamples the time series by `downsample` factor to speed up plotting.
+    
+    :param df: A DataFrame where each column is a client (meter),
+               and the index is a DateTimeIndex.
+    :param random_cols: Number of columns to sample for inspection.
+    :param downsample: Plot only every Nth data point to prevent huge slowdowns.
+    """
+    # -----------------------------
+    # 1) Randomly pick the columns
+    # -----------------------------
+    all_cols = df.columns.tolist()
+    if random_cols > len(all_cols):
+        random_cols = len(all_cols)
+    chosen_cols = random.sample(all_cols, random_cols)
+
+    # -----------------------------
+    # 2) Find gaps for each column
+    # -----------------------------
+    # Or inline your find_gaps_in_column function
+    col_gap_intervals = {}
+    for col in chosen_cols:
+        intervals = find_gaps_in_column(df[col])
+        col_gap_intervals[col] = intervals
+
+    # -----------------------------
+    # 3) Determine subplot layout
+    # -----------------------------
+    n_max = max(len(intervals) for intervals in col_gap_intervals.values())
+    if n_max == 0:
+        print("no gaps detected for this group")
+        return None
+
+    fig, axes = plt.subplots(random_cols, n_max, figsize=(5 * n_max, 3 * random_cols))
+    if random_cols == 1:
+        axes = np.atleast_2d(axes)  # ensure 2D if only one row
+    if n_max == 1:
+        axes = np.expand_dims(axes, axis=1)  # ensure 2D if only one column
+
+    # -----------------------------
+    # 4) Plot each gap in a subplot
+    # -----------------------------
+    for row_idx, col in enumerate(chosen_cols):
+        series = df[col]
+        intervals = col_gap_intervals[col]
+        
+        for col_idx in range(n_max):
+            ax = axes[row_idx, col_idx]
+            if col_idx < len(intervals):
+                gap_start, gap_end = intervals[col_idx]
+                
+                # Define zoom window: 2 days before gap_start and 2 days after gap_end
+                start_zoom = gap_start - pd.Timedelta(days=2)
+                end_zoom = gap_end + pd.Timedelta(days=2)
+                
+                # Slice the time series
+                sub = series.loc[start_zoom:end_zoom]
+
+                # =========== DOWNSAMPLING =========== 
+                # Plot every 'downsample' point to avoid huge slowdowns
+                sub = sub.iloc[::downsample]
+
+                ax.plot(sub.index, sub, label=col, color='blue')
+                ax.axvspan(gap_start, gap_end, color='red', alpha=0.3)
+                ax.set_title(f"{col} - Gap {col_idx+1}")
+                for label in ax.get_xticklabels():
+                    label.set_rotation(45)
+            else:
+                # Hide unused subplot
+                ax.axis('off')
+
+    plt.tight_layout()
+    plt.show()
+
+
+def verify_no_internal_gaps(df):
+    """
+    Checks if any column has NaNs between its first and last valid data point.
+    Prints columns with gaps, or a success message if none.
+    """# or inline that code
+    
+    columns_with_gaps = []
+    for col in df.columns:
+        intervals = find_gaps_in_column(df[col])
+        if len(intervals) > 0:
+            columns_with_gaps.append(col)
+
+    if len(columns_with_gaps) == 0:
+        print("No internal gaps detected for any client!")
+    else:
+        print("Columns with internal gaps:")
+        for c in columns_with_gaps:
+            print("  ", c)
+
