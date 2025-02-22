@@ -1,0 +1,15 @@
+{
+    "folders": [
+      {
+        "path": "."
+      }
+    ],
+    "settings": {
+      "python.pythonPath": "C:\\venv_anomaly_project\\Scripts\\python.exe",
+      "files.exclude": {
+        "**/__pycache__": true,
+        "**/*.pyc": true
+      }
+    }
+  }
+  

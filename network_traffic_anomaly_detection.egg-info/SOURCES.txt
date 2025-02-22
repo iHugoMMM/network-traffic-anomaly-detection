@@ -1,0 +1,12 @@
+LICENSE
+README.md
+setup.py
+network_traffic_anomaly_detection.egg-info/PKG-INFO
+network_traffic_anomaly_detection.egg-info/SOURCES.txt
+network_traffic_anomaly_detection.egg-info/dependency_links.txt
+network_traffic_anomaly_detection.egg-info/top_level.txt
+src/__init__.py
+src/anomaly_detection.py
+src/data_preprocessing.py
+src/download_data.py
+src/feature_extraction.py
