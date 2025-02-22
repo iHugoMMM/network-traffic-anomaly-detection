@@ -1,0 +1,9 @@
+pandas
+numpy
+scikit-learn
+matplotlib
+seaborn
+jupyter
+ipykernel
+tensorflow
+kaggle  # If you plan to download via Kaggle API

@@ -1,3 +1,10 @@
-# Ignore data files
+# Ignore data folders
 data/raw/
 data/processed/
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+
+# Ignore virtual environment folder if stored inside repo
+venv_anomaly_project/
